@@ -1,11 +1,11 @@
 // /src/components/TodoList.tsx
-import React, { useState } from 'react';
-import { useRecoilState } from 'recoil';
-import { todoListState, Todo } from '../../store/atoms/todoAtom';
+import React, { useState } from "react";
+import { useRecoilState } from "recoil";
+import { todoListState, Todo } from "../../store/atoms/todoAtom";
 
 const TodoList: React.FC = () => {
   const [todos, setTodos] = useRecoilState(todoListState);
-  const [newTodo, setNewTodo] = useState('');
+  const [newTodo, setNewTodo] = useState("");
 
   const addTodo = () => {
     const newItem: Todo = {
@@ -14,7 +14,7 @@ const TodoList: React.FC = () => {
       completed: false,
     };
     setTodos([...todos, newItem]);
-    setNewTodo(''); // Reset input
+    setNewTodo(""); // Reset input
   };
 
   const toggleTodo = (id: number) => {
@@ -37,7 +37,7 @@ const TodoList: React.FC = () => {
       <ul>
         {todos.map((todo) => (
           <li key={todo.id} onClick={() => toggleTodo(todo.id)}>
-            {todo.text} {todo.completed ? '(Completed)' : ''}
+            {todo.text} {todo.completed ? "(Completed)" : ""}
           </li>
         ))}
       </ul>
