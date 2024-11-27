@@ -1,20 +1,33 @@
-// /src/pages/LoginPage.tsx
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { signInWithPopup } from "firebase/auth";
+import {
+  signInWithPopup,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+} from "firebase/auth";
 import { auth, googleProvider } from "../firebase-config";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+  // Monitor Firebase Auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         localStorage.setItem("username", user.displayName || "User");
-        navigate("/dashboard"); // Redirect after login
+        navigate("/dashboard");
       }
+    });
+
+    // Cleanup subscription on component unmount
+    return () => unsubscribe();
+  }, [navigate]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      await setPersistence(auth, browserLocalPersistence); // Persist session in localStorage
+      await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Error during Google login:", error);
     }

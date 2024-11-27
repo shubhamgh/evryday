@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { todoListState, Todo } from "../store/atoms/todoAtom";
 import { filterState } from "../store/atoms/filterAtom";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase-config";
 import { filteredTodosSelector } from "../store/selectors/todoSelectors";
 
 const Dashboard: React.FC = () => {
@@ -41,7 +43,8 @@ const Dashboard: React.FC = () => {
         <div className="container mx-auto px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <button
-            onClick={() => {
+            onClick={async () => {
+              await signOut(auth);
               localStorage.removeItem("username");
               window.location.href = "/";
             }}
