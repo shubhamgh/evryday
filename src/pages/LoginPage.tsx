@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        localStorage.setItem("username", user.displayName || "User");
+        // localStorage.setItem("username", user.displayName || "User");
         navigate("/dashboard");
       }
     });
@@ -26,7 +26,7 @@ const LoginPage: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      await setPersistence(auth, browserLocalPersistence); // Persist session in localStorage
+      await setPersistence(auth, browserLocalPersistence); // Ensure persistence
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Error during Google login:", error);
