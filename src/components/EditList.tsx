@@ -23,67 +23,83 @@ const EditList: React.FC = () => {
   const { listId } = useParams<{ listId: string }>(); // Get the listId from the URL
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTask, setNewTask] = useState<string>("");
+  const [listName, setListName] = useState<string>(""); // State for the list name
   const [error, setError] = useState<string | null>(null); // Error message
   const [loading, setLoading] = useState<boolean>(true); // Loading state
   const navigate = useNavigate(); // For navigation
 
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+  // Function to validate list access and fetch name
+  const validateListId = async (
+    listId: string,
+    userId: string
+  ): Promise<boolean> => {
+    try {
+      const listRef = doc(db, "lists", listId);
+      const listSnapshot = await getDoc(listRef);
 
-    const checkAccessAndFetchTodos = async () => {
-      if (!listId) return;
-
-      setLoading(true);
-      try {
-        const listRef = doc(db, "lists", listId);
-        const listSnapshot = await getDoc(listRef);
-
-        if (!listSnapshot.exists()) {
-          setError("List Not Found");
-          setLoading(false);
-          return;
-        }
-
-        const listData = listSnapshot.data();
-        const userEmail = auth.currentUser?.uid;
-
-        if (!listData?.collaborators?.includes(userEmail)) {
-          setError("Unauthorized Access");
-          setLoading(false);
-          return;
-        }
-
-        // If authorized, set up the Firestore listener
-        const todosRef = collection(db, "todos");
-        const q = query(todosRef, where("listId", "==", listId));
-        unsubscribe = onSnapshot(q, (snapshot) => {
-          const fetchedTodos = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Todo[];
-          setTodos(fetchedTodos);
-          setError(null);
-        });
-      } catch (error) {
-        console.error("Error checking access or fetching todos:", error);
-        setError("An error occurred. Please try again later.");
-      } finally {
-        setLoading(false);
+      if (!listSnapshot.exists()) {
+        console.error(`List with ID ${listId} does not exist.`);
+        return false;
       }
-    };
 
-    checkAccessAndFetchTodos();
+      const listData = listSnapshot.data();
+      if (!listData?.collaborators.includes(userId)) {
+        console.error(`User ${userId} is not a collaborator for this list.`);
+        return false;
+      }
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [listId]);
+      setListName(listData.name || "Untitled List"); // Set the list name
+      return true; // All validations passed
+    } catch (error) {
+      console.error("Error validating listId:", error);
+      return false;
+    }
+  };
 
+  // Function to fetch todos
+  const fetchTodos = async () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId || !listId) {
+      setError("Unauthorized Access");
+      setLoading(false);
+      return;
+    }
+
+    const isValid = await validateListId(listId, userId);
+    if (!isValid) {
+      setError("Unauthorized Access");
+      setLoading(false);
+      return;
+    }
+
+    const todosRef = collection(db, "todos");
+    const q = query(todosRef, where("listId", "==", listId));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedTodos = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Todo[];
+      setTodos(fetchedTodos);
+      setError(null);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  };
+
+  // Function to add a new task
   const addTask = async () => {
-    const userEmail = auth.currentUser?.uid;
+    const userId = auth.currentUser?.uid;
 
-    if (!userEmail || !newTask.trim()) {
+    if (!userId || !newTask.trim()) {
       alert("Task description is required.");
+      return;
+    }
+
+    const isValid = await validateListId(listId!, userId);
+    if (!isValid) {
+      alert("You do not have permission to add tasks to this list.");
       return;
     }
 
@@ -91,9 +107,10 @@ const EditList: React.FC = () => {
       listId,
       text: newTask.trim(),
       completed: false,
-      createdBy: userEmail,
+      createdBy: userId,
       createdAt: new Date(),
     };
+
     try {
       await addDoc(collection(db, "todos"), newTodo);
       setNewTask(""); // Clear input after adding
@@ -103,6 +120,7 @@ const EditList: React.FC = () => {
     }
   };
 
+  // Function to delete a task
   const deleteTask = async (id: string) => {
     try {
       await deleteDoc(doc(db, "todos", id));
@@ -111,6 +129,7 @@ const EditList: React.FC = () => {
     }
   };
 
+  // Function to toggle task completion
   const toggleTaskCompletion = async (id: string, completed: boolean) => {
     try {
       const todoRef = doc(db, "todos", id);
@@ -120,8 +139,30 @@ const EditList: React.FC = () => {
     }
   };
 
+  // UseEffect to fetch todos when component mounts
+  useEffect(() => {
+    setLoading(true);
+    let unsubscribe: (() => void) | undefined;
+
+    const setupListener = async () => {
+      unsubscribe = await fetchTodos();
+    };
+
+    setupListener();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [listId]);
+
   if (loading) {
-    return <div className="text-center">Loading...</div>;
+    return (
+      <div className="text-center py-4">
+        <span className="animate-pulse text-lg font-semibold text-gray-600">
+          Loading your list items...
+        </span>
+      </div>
+    );
   }
 
   if (error) {
@@ -142,7 +183,8 @@ const EditList: React.FC = () => {
 
   return (
     <div className="min-h-screen p-8 bg-gray-100">
-      <h1 className="text-2xl font-bold mb-6">Edit List</h1>
+      <h1 className="text-3xl font-bold mb-6">{listName}</h1>{" "}
+      {/* Display List Name */}
       <div className="mb-8">
         <h2 className="text-lg font-semibold mb-4">Add a New Task</h2>
         <div className="flex space-x-4">
@@ -161,7 +203,6 @@ const EditList: React.FC = () => {
           </button>
         </div>
       </div>
-
       <h2 className="text-lg font-semibold mb-4">Tasks</h2>
       <ul className="space-y-4">
         {todos.map((todo) => (

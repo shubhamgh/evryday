@@ -30,7 +30,7 @@ const Header: React.FC = () => {
     <header className="bg-blue-500 text-white px-4 py-3 shadow-md flex justify-between items-center dark:bg-gray-800">
       {/* App Title */}
       <h1 className="text-lg font-bold">
-        <Link to="/dashboard">My App</Link>
+        <Link to="/dashboard">Evryday</Link>
       </h1>
 
       {/* Icons and Dropdown */}

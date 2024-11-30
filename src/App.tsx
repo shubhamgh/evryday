@@ -14,20 +14,14 @@ import EditList from "./components/EditList";
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [profilePic, setProfilePic] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string>("User");
   const [isLoading, setIsLoading] = useState<boolean>(true); // Loading state to avoid flickers
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setIsAuthenticated(true);
-        setProfilePic(user.photoURL);
-        setDisplayName(user.displayName || "User");
       } else {
         setIsAuthenticated(false);
-        setProfilePic(null);
-        setDisplayName("User");
       }
       setIsLoading(false); // Loading complete
     });
@@ -37,8 +31,10 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading...
+      <div className="text-center py-4">
+        <span className="animate-pulse text-lg font-semibold text-gray-600">
+          Loading the Evryday Experience...
+        </span>
       </div>
     );
   }
