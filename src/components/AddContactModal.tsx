@@ -62,7 +62,7 @@ const AddContactModal: React.FC<{
     );
 
     try {
-      const docRef = await addDoc(collection(db, "contacts"), sanitizedContact);
+      // const docRef = await addDoc(collection(db, "contacts"), sanitizedContact);
       // onAdd({ id: docRef.id, ...sanitizedContact });
       onClose(); // Close modal after adding
     } catch (error) {
