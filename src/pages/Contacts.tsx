@@ -1,58 +1,76 @@
-// /src/pages/Contacts.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-interface Contact {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-}
-
-const initialContacts: Contact[] = [
-  { id: 1, name: "John Doe", email: "john@example.com", phone: "123-456-7890" },
-  {
-    id: 2,
-    name: "Jane Smith",
-    email: "jane@example.com",
-    phone: "987-654-3210",
-  },
-  {
-    id: 3,
-    name: "Alice Johnson",
-    email: "alice@example.com",
-    phone: "555-123-4567",
-  },
-];
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+} from "firebase/firestore";
+import { db, auth } from "../firebase-config";
+import { BsSortDownAlt, BsFillPlusCircleFill } from "react-icons/bs";
+import AddContactModal from "../components/AddContactModal";
+import { Contact } from "../types";
 
 const Contacts: React.FC = () => {
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isAddModalOpen, setAddModalOpen] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortOption, setSortOption] = useState("nameAsc");
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
 
-  // Filter contacts based on the search term
-  const filteredContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Ref for clicking outside the dropdown
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Sort contacts alphabetically
-  const sortedContacts = [...filteredContacts].sort((a, b) =>
-    sortOrder === "asc"
-      ? a.name.localeCompare(b.name)
-      : b.name.localeCompare(a.name)
-  );
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
 
-  const addContact = (newContact: Contact) => {
-    setContacts([...contacts, newContact]);
-  };
+    const contactsRef = collection(db, "contacts");
+    const q = query(
+      contactsRef,
+      where("createdBy", "==", userId),
+      orderBy(
+        sortOption.includes("date") ? "dateCreated" : "name",
+        sortOption.includes("desc") ? "desc" : "asc"
+      )
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedContacts = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Contact[];
+      setContacts(fetchedContacts);
+    });
+
+    return () => unsubscribe();
+  }, [sortOption]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setSortDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
-      <h1 className="text-2xl font-bold mb-6">Contacts</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Contacts</h1>
+      </div>
 
-      {/* Search and Sort Controls */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Search and Sort */}
+      <div className="flex items-center justify-between mb-6">
         <input
           type="text"
           placeholder="Search contacts..."
@@ -60,68 +78,113 @@ const Contacts: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-blue-300"
         />
+        <div className="relative" ref={dropdownRef}>
+          <button
+            className="flex items-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-md"
+            onClick={() => setSortDropdownOpen((prev) => !prev)}
+          >
+            <BsSortDownAlt className="text-lg" />
+            <span>Sort</span>
+          </button>
+          {sortDropdownOpen && (
+            <ul className="absolute right-0 mt-2 w-48 bg-white shadow-md rounded-md z-10">
+              <li
+                onClick={() => {
+                  setSortOption("nameAsc");
+                  setSortDropdownOpen(false);
+                }}
+                className={`px-4 py-2 cursor-pointer hover:bg-gray-200 ${
+                  sortOption === "nameAsc" ? "font-bold" : ""
+                }`}
+              >
+                Alphabetical (A-Z)
+              </li>
+              <li
+                onClick={() => {
+                  setSortOption("nameDesc");
+                  setSortDropdownOpen(false);
+                }}
+                className={`px-4 py-2 cursor-pointer hover:bg-gray-200 ${
+                  sortOption === "nameDesc" ? "font-bold" : ""
+                }`}
+              >
+                Alphabetical (Z-A)
+              </li>
+              <li
+                onClick={() => {
+                  setSortOption("dateOldest");
+                  setSortDropdownOpen(false);
+                }}
+                className={`px-4 py-2 cursor-pointer hover:bg-gray-200 ${
+                  sortOption === "dateOldest" ? "font-bold" : ""
+                }`}
+              >
+                Date Added (Oldest)
+              </li>
+              <li
+                onClick={() => {
+                  setSortOption("dateNewest");
+                  setSortDropdownOpen(false);
+                }}
+                className={`px-4 py-2 cursor-pointer hover:bg-gray-200 ${
+                  sortOption === "dateNewest" ? "font-bold" : ""
+                }`}
+              >
+                Date Added (Newest)
+              </li>
+            </ul>
+          )}
+        </div>
         <button
-          onClick={() =>
-            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-          }
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
+          onClick={() => setAddModalOpen(true)}
+          className="flex items-center bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition"
         >
-          Sort {sortOrder === "asc" ? "↓" : "↑"}
+          <BsFillPlusCircleFill className="text-lg mr-2" />
+          Add Contact
         </button>
       </div>
 
-      {/* Add Contact Form */}
-      <div className="mb-6">
-        <AddContactForm onAdd={addContact} />
-      </div>
-
-      {/* Contact Tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sortedContacts.map((contact) => (
-          <motion.div
-            key={contact.id}
-            className="bg-white p-4 rounded-lg shadow-md cursor-pointer"
-            onClick={() => setSelectedContact(contact)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+      {/* Contact Tiles or No Contacts Message */}
+      {contacts.length === 0 ? (
+        <div className="text-center">
+          <p className="text-gray-500">
+            No contacts available. Start by adding your first contact.
+          </p>
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
           >
-            <h2 className="text-lg font-semibold">{contact.name}</h2>
-            <p className="text-gray-600">{contact.email}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Contact Detail Modal */}
-      <AnimatePresence>
-        {selectedContact && (
-          <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full"
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <h2 className="text-xl font-bold mb-4">{selectedContact.name}</h2>
-              <p>
-                <strong>Email:</strong> {selectedContact.email}
-              </p>
-              <p>
-                <strong>Phone:</strong> {selectedContact.phone}
-              </p>
-              <button
-                onClick={() => setSelectedContact(null)}
-                className="mt-4 bg-red-500 text-white px-4 py-2 rounded-md"
+            Add Contact
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {contacts
+            .filter((contact) =>
+              contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .map((contact) => (
+              <motion.div
+                key={contact.id}
+                className="bg-white p-4 rounded-lg shadow-md cursor-pointer"
+                onClick={() => setSelectedContact(contact)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Close
-              </button>
-            </motion.div>
-          </motion.div>
+                <h2 className="text-lg font-semibold">{contact.name}</h2>
+                <p className="text-gray-600">{contact.email}</p>
+              </motion.div>
+            ))}
+        </div>
+      )}
+
+      {/* Add Contact Modal */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <AddContactModal
+            onClose={() => setAddModalOpen(false)}
+            // onAdd={(newContact) => setContacts([...contacts, newContact])}
+          />
         )}
       </AnimatePresence>
     </div>
@@ -129,62 +192,3 @@ const Contacts: React.FC = () => {
 };
 
 export default Contacts;
-
-// Reusable AddContactForm Component
-const AddContactForm: React.FC<{ onAdd: (contact: Contact) => void }> = ({
-  onAdd,
-}) => {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-
-  const handleAddContact = () => {
-    if (name && email && phone) {
-      const newContact: Contact = {
-        id: Date.now(),
-        name,
-        email,
-        phone,
-      };
-      onAdd(newContact);
-      setName("");
-      setEmail("");
-      setPhone("");
-    }
-  };
-
-  return (
-    <div className="bg-white p-4 rounded-lg shadow-md">
-      <h2 className="text-lg font-semibold mb-4">Add Contact</h2>
-      <div className="space-y-3">
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-blue-300"
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-blue-300"
-        />
-        <input
-          type="tel"
-          placeholder="Phone"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-blue-300"
-        />
-        <button
-          onClick={handleAddContact}
-          className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
-        >
-          Add Contact
-        </button>
-      </div>
-    </div>
-  );
-};

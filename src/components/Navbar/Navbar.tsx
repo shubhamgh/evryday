@@ -15,7 +15,7 @@ const Navbar: React.FC<{ isAuthenticated: boolean; onLogout: () => void }> = ({
           className="text-lg font-bold cursor-pointer"
           onClick={() => navigate("/")}
         >
-          My App
+          Evryday
         </h1>
         <div className="space-x-4">
           {isAuthenticated ? (
