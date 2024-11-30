@@ -1,4 +1,3 @@
-// /src/components/Header.tsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { signOut } from "firebase/auth";
@@ -6,11 +5,15 @@ import { auth } from "../firebase-config";
 import { motion } from "framer-motion";
 import { useUser } from "../context/UserContext";
 import { BsMoon, BsSun } from "react-icons/bs";
+import { FiCopy } from "react-icons/fi";
 
 const Header: React.FC = () => {
   const { profilePic, displayName } = useUser();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [copied, setCopied] = useState(false); // State for copy feedback
+
+  const userUid = auth.currentUser?.uid || "N/A"; // Fallback if UID is unavailable
 
   useEffect(() => {
     const html = document.documentElement;
@@ -24,6 +27,14 @@ const Header: React.FC = () => {
   const handleLogout = async () => {
     await signOut(auth);
     window.location.href = "/";
+  };
+
+  const handleCopyUid = () => {
+    if (userUid !== "N/A") {
+      navigator.clipboard.writeText(userUid);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Reset copied state after 2 seconds
+    }
   };
 
   return (
@@ -86,8 +97,25 @@ const Header: React.FC = () => {
             />
           </button>
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 bg-white text-black rounded-md shadow-lg py-2 w-48 dark:bg-gray-700 dark:text-white">
+            <div className="absolute right-0 mt-2 bg-white text-black rounded-md shadow-lg py-2 w-48 dark:bg-gray-700 dark:text-white z-50">
               <p className="px-4 py-2 border-b text-sm">Hi, {displayName}</p>
+
+              {/* UID Display */}
+              <div
+                onClick={handleCopyUid}
+                className="px-4 py-2 text-sm cursor-pointer flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                <span className="truncate" title={userUid}>
+                  UID: {userUid}
+                </span>
+                {copied ? (
+                  <span className="text-green-500 text-xs">✔</span>
+                ) : (
+                  <FiCopy className="text-blue-500 text-sm" />
+                )}
+              </div>
+
+              {/* Home Link */}
               <Link
                 to="/dashboard"
                 className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600"
@@ -95,6 +123,8 @@ const Header: React.FC = () => {
               >
                 Home
               </Link>
+
+              {/* Logout Button */}
               <button
                 onClick={handleLogout}
                 className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600"

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   collection,
-  addDoc,
   query,
   where,
   onSnapshot,
@@ -166,10 +165,11 @@ const Contacts: React.FC = () => {
             .map((contact) => (
               <motion.div
                 key={contact.id}
-                className="bg-white p-4 rounded-lg shadow-md cursor-pointer"
+                className="relative z-10 bg-white p-4 rounded-lg shadow-md cursor-pointer"
                 onClick={() => setSelectedContact(contact)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                style={{ zIndex: 10 }} // Explicit z-index to prevent overlap
               >
                 <h2 className="text-lg font-semibold">{contact.name}</h2>
                 <p className="text-gray-600">{contact.email}</p>
